@@ -1,9 +1,13 @@
-### Fast GPT V4.6
+### FastGPT V4.8.20 更新说明
 
-1. 新增 - 团队空间试用版。
-2. 新增 - OpenAI语音播报。
-3. [知识库结构详解](https://doc.fastgpt.in/docs/use-cases/datasetengine/)
-4. [知识库提示词详解](https://doc.fastgpt.in/docs/use-cases/ai_settings/#引用模板--引用提示词)
-5. [使用文档](https://doc.fastgpt.in/docs/intro/)
-6. [点击查看高级编排介绍文档](https://doc.fastgpt.in/docs/workflow)
-7. [点击查看商业版](https://doc.fastgpt.in/docs/commercial/)
+1. 新增 - 使用记录导出和仪表盘。
+2. 新增 - DeepSeek resoner 模型支持输出思考过程。
+3. 新增 - markdown 语法扩展，支持音视频（代码块 audio 和 video）。
+4. 新增 - 飞书/语雀知识库。
+5. 新增 - 工作流知识库检索支持按知识库权限进行过滤。
+6. 新增 - 流程等待插件，可以等待 n 毫秒后继续执行流程。
+7. 新增 - 飞书机器人接入，支持配置私有化飞书地址。
+8. 新增 - 支持通过 JSON 配置直接创建应用。
+9. 新增 - 支持通过 CURL 脚本快速创建 HTTP 插件。
+10. 新增 - 支持部门架构权限模式。
+
