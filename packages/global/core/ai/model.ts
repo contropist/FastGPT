@@ -1,115 +1,87 @@
-import type {
-  LLMModelItemType,
-  ChatModelItemType,
-  FunctionModelItemType,
-  VectorModelItemType,
-  AudioSpeechModelType
-} from './model.d';
+import { i18nT } from '../../../web/i18n/utils';
+import type { LLMModelItemType, STTModelType, EmbeddingModelItemType } from './model.d';
+import { getModelProvider, ModelProviderIdType } from './provider';
 
-export const defaultChatModels: ChatModelItemType[] = [
-  {
-    model: 'gpt-3.5-turbo-1106',
-    name: 'GPT35-1106',
-    price: 0,
-    maxContext: 16000,
-    maxResponse: 4000,
-    quoteMaxToken: 2000,
-    maxTemperature: 1.2,
-    censor: false,
-    defaultSystemChatPrompt: ''
-  },
-  {
-    model: 'gpt-3.5-turbo-16k',
-    name: 'GPT35-16k',
-    maxContext: 16000,
-    maxResponse: 16000,
-    price: 0,
-    quoteMaxToken: 8000,
-    maxTemperature: 1.2,
-    censor: false,
-    defaultSystemChatPrompt: ''
-  },
-  {
-    model: 'gpt-4',
-    name: 'GPT4-8k',
-    maxContext: 8000,
-    maxResponse: 8000,
-    price: 0,
-    quoteMaxToken: 4000,
-    maxTemperature: 1.2,
-    censor: false,
-    defaultSystemChatPrompt: ''
-  }
-];
+export enum ModelTypeEnum {
+  llm = 'llm',
+  embedding = 'embedding',
+  tts = 'tts',
+  stt = 'stt',
+  rerank = 'rerank'
+}
+
 export const defaultQAModels: LLMModelItemType[] = [
   {
-    model: 'gpt-3.5-turbo-16k',
-    name: 'GPT35-16k',
+    type: ModelTypeEnum.llm,
+    provider: 'OpenAI',
+    model: 'gpt-4o-mini',
+    name: 'gpt-4o-mini',
     maxContext: 16000,
     maxResponse: 16000,
-    price: 0
-  }
-];
-export const defaultCQModels: FunctionModelItemType[] = [
-  {
-    model: 'gpt-3.5-turbo-1106',
-    name: 'GPT35-1106',
-    maxContext: 16000,
-    maxResponse: 4000,
-    price: 0,
-    functionCall: true,
-    functionPrompt: ''
-  },
-  {
-    model: 'gpt-4',
-    name: 'GPT4-8k',
-    maxContext: 8000,
-    maxResponse: 8000,
-    price: 0,
-    functionCall: true,
-    functionPrompt: ''
-  }
-];
-export const defaultExtractModels: FunctionModelItemType[] = [
-  {
-    model: 'gpt-3.5-turbo-1106',
-    name: 'GPT35-1106',
-    maxContext: 16000,
-    maxResponse: 4000,
-    price: 0,
-    functionCall: true,
-    functionPrompt: ''
-  }
-];
-export const defaultQGModels: LLMModelItemType[] = [
-  {
-    model: 'gpt-3.5-turbo-1106',
-    name: 'GPT35-1106',
-    maxContext: 1600,
-    maxResponse: 4000,
-    price: 0
+    quoteMaxToken: 13000,
+    maxTemperature: 1.2,
+    charsPointsPrice: 0,
+    censor: false,
+    vision: true,
+    datasetProcess: true,
+    toolChoice: true,
+    functionCall: false,
+    customCQPrompt: '',
+    customExtractPrompt: '',
+    defaultSystemChatPrompt: '',
+    defaultConfig: {}
   }
 ];
 
-export const defaultVectorModels: VectorModelItemType[] = [
+export const defaultVectorModels: EmbeddingModelItemType[] = [
   {
-    model: 'text-embedding-ada-002',
+    type: ModelTypeEnum.embedding,
+    provider: 'OpenAI',
+    model: 'text-embedding-3-small',
     name: 'Embedding-2',
-    price: 0,
+    charsPointsPrice: 0,
     defaultToken: 500,
-    maxToken: 3000
+    maxToken: 3000,
+    weight: 100
   }
 ];
 
-export const defaultAudioSpeechModels: AudioSpeechModelType[] = [
+export const defaultSTTModels: STTModelType[] = [
   {
-    model: 'tts-1',
-    name: 'OpenAI TTS1',
-    price: 0
-  },
-  {
-    model: 'tts-1-hd',
-    name: 'OpenAI TTS1',
-    price: 0
+    type: ModelTypeEnum.stt,
+    provider: 'OpenAI',
+    model: 'whisper-1',
+    name: 'whisper-1',
+    charsPointsPrice: 0
   }
+];
+
+export const getModelFromList = (
+  modelList: { provider: ModelProviderIdType; name: string; model: string }[],
+  model: string
+):
+  | {
+      avatar: string;
+      provider: ModelProviderIdType;
+      name: string;
+      model: string;
+    }
+  | undefined => {
+  const modelData = modelList.find((item) => item.model === model) ?? modelList[0];
+  if (!modelData) {
+    return;
+  }
+  const provider = getModelProvider(modelData.provider);
+  return {
+    ...modelData,
+    avatar: provider.avatar
+  };
+};
+
+export const modelTypeList = [
+  { label: i18nT('common:model.type.chat'), value: ModelTypeEnum.llm },
+  { label: i18nT('common:model.type.embedding'), value: ModelTypeEnum.embedding },
+  { label: i18nT('common:model.type.tts'), value: ModelTypeEnum.tts },
+  { label: i18nT('common:model.type.stt'), value: ModelTypeEnum.stt },
+  { label: i18nT('common:model.type.reRank'), value: ModelTypeEnum.rerank }
 ];
