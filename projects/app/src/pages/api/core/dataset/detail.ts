@@ -1,42 +1,59 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { jsonRes } from '@fastgpt/service/common/response';
-import { connectToDatabase } from '@/service/mongo';
-import { getVectorModel } from '@/service/core/ai/model';
-import { DatasetItemType } from '@/types/core/dataset';
-import { authDataset } from '@fastgpt/service/support/permission/auth/dataset';
+import { getLLMModel, getEmbeddingModel, getVlmModel } from '@fastgpt/service/core/ai/model';
+import { authDataset } from '@fastgpt/service/support/permission/dataset/auth';
+import { ReadPermissionVal } from '@fastgpt/global/support/permission/constant';
+import { NextAPI } from '@/service/middleware/entry';
+import { DatasetItemType } from '@fastgpt/global/core/dataset/type';
+import { ApiRequestProps } from '@fastgpt/service/type/next';
+import { CommonErrEnum } from '@fastgpt/global/common/error/code/common';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<any>) {
-  try {
-    await connectToDatabase();
-    const { id: datasetId } = req.query as {
-      id: string;
-    };
+type Query = {
+  id: string;
+};
 
-    if (!datasetId) {
-      throw new Error('缺少参数');
-    }
+async function handler(req: ApiRequestProps<Query>): Promise<DatasetItemType> {
+  const { id: datasetId } = req.query as {
+    id: string;
+  };
 
-    // 凭证校验
-    const { dataset, canWrite, isOwner } = await authDataset({
-      req,
-      authToken: true,
-      datasetId,
-      per: 'r'
-    });
-
-    jsonRes<DatasetItemType>(res, {
-      data: {
-        ...dataset,
-        tags: dataset.tags.join(' '),
-        vectorModel: getVectorModel(dataset.vectorModel),
-        canWrite,
-        isOwner
-      }
-    });
-  } catch (err) {
-    jsonRes(res, {
-      code: 500,
-      error: err
-    });
+  if (!datasetId) {
+    return Promise.reject(CommonErrEnum.missingParams);
   }
+
+  // 凭证校验
+  const { dataset, permission } = await authDataset({
+    req,
+    authToken: true,
+    authApiKey: true,
+    datasetId,
+    per: ReadPermissionVal
+  });
+
+  return {
+    ...dataset,
+    apiServer: dataset.apiServer
+      ? {
+          baseUrl: dataset.apiServer.baseUrl,
+          authorization: ''
+        }
+      : undefined,
+    yuqueServer: dataset.yuqueServer
+      ? {
+          userId: dataset.yuqueServer.userId,
+          token: ''
+        }
+      : undefined,
+    feishuServer: dataset.feishuServer
+      ? {
+          appId: dataset.feishuServer.appId,
+          appSecret: '',
+          folderToken: dataset.feishuServer.folderToken
+        }
+      : undefined,
+    permission,
+    vectorModel: getEmbeddingModel(dataset.vectorModel),
+    agentModel: getLLMModel(dataset.agentModel),
+    vlmModel: getVlmModel(dataset.vlmModel)
+  };
 }
+
+export default NextAPI(handler);
