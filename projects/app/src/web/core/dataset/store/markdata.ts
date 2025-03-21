@@ -1,10 +1,9 @@
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import type { SearchDataResponseItemType } from '@fastgpt/global/core/dataset/type';
 
 export type MarkDataStore = {
-  chatItemId: string;
+  dataId: string;
   datasetId?: string;
   collectionId?: string;
   q: string;

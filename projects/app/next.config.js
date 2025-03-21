@@ -1,22 +1,17 @@
-/** @type {import('next').NextConfig} */
-const { i18n } = require('./next-i18next.config');
+const { i18n } = require('./next-i18next.config.js');
 const path = require('path');
+const fs = require('fs');
 
+const isDev = process.env.NODE_ENV === 'development';
+
+/** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: process.env.NEXT_PUBLIC_BASE_URL,
   i18n,
   output: 'standalone',
-  reactStrictMode: process.env.NODE_ENV === 'development' ? false : true,
+  reactStrictMode: isDev ? false : true,
   compress: true,
-  webpack(config, { isServer }) {
-    if (!isServer) {
-      config.resolve = {
-        ...config.resolve,
-        fallback: {
-          ...config.resolve.fallback,
-          fs: false
-        }
-      };
-    }
+  webpack(config, { isServer, nextRuntime }) {
     Object.assign(config.resolve.alias, {
       '@mongodb-js/zstd': false,
       '@aws-sdk/credential-providers': false,
@@ -41,13 +36,79 @@ const nextConfig = {
       unknownContextCritical: false
     };
 
+    if (!config.externals) {
+      config.externals = [];
+    }
+
+    if (isServer) {
+      config.externals.push('@node-rs/jieba');
+      if (nextRuntime === 'nodejs') {
+        const oldEntry = config.entry;
+        config = {
+          ...config,
+          async entry(...args) {
+            const entries = await oldEntry(...args);
+            return {
+              ...entries,
+              ...getWorkerConfig(),
+              'worker/systemPluginRun': path.resolve(
+                process.cwd(),
+                '../../packages/plugins/runtime/worker.ts'
+              )
+            };
+          }
+        };
+      }
+    } else {
+      config.resolve = {
+        ...config.resolve,
+        fallback: {
+          ...config.resolve.fallback,
+          fs: false
+        }
+      };
+    }
+
+    config.experiments = {
+      asyncWebAssembly: true,
+      layers: true
+    };
+
     return config;
   },
-  transpilePackages: ['@fastgpt/*'],
+  // 需要转译的包
+  transpilePackages: ['@fastgpt/global', '@fastgpt/web', 'ahooks'],
   experimental: {
-    serverComponentsExternalPackages: ['mongoose', 'winston', 'winston-mongodb', 'pg'],
-    outputFileTracingRoot: path.join(__dirname, '../../')
+    // 优化 Server Components 的构建和运行，避免不必要的客户端打包。
+    serverComponentsExternalPackages: [
+      'mongoose',
+      'pg',
+      '@zilliz/milvus2-sdk-node',
+      "tiktoken",
+    ],
+    outputFileTracingRoot: path.join(__dirname, '../../'),
+    instrumentationHook: true
   }
 };
 
 module.exports = nextConfig;
+
+function getWorkerConfig() {
+  const result = fs.readdirSync(path.resolve(__dirname, '../../packages/service/worker'));
+
+  // 获取所有的目录名
+  const folderList = result.filter((item) => {
+    return fs
+      .statSync(path.resolve(__dirname, '../../packages/service/worker', item))
+      .isDirectory();
+  });
+
+  const workerConfig = folderList.reduce((acc, item) => {
+    acc[`worker/${item}`] = path.resolve(
+      process.cwd(),
+      `../../packages/service/worker/${item}/index.ts`
+    );
+    return acc;
+  }, {});
+  return workerConfig;
+}

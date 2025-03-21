@@ -3,3 +3,8 @@ dist
 **/.DS_Store
 node_modules
 docSite/
+*.md
+
+pnpm-lock.yaml
+cl100l_base.ts
+dict.json

@@ -1,37 +1,22 @@
+import { I18nNsType } from '@fastgpt/web/types/i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import Cookies from 'js-cookie';
 
-export const LANG_KEY = 'NEXT_LOCALE_LANG';
 export enum LangEnum {
-  'zh' = 'zh',
+  'zh_CN' = 'zh-CN',
+  'zh_Hant' = 'zh-Hant',
   'en' = 'en'
 }
 export const langMap = {
   [LangEnum.en]: {
-    label: 'English',
-    icon: 'language_en'
+    label: 'English(US)',
+    avatar: 'common/language/America'
   },
-  [LangEnum.zh]: {
+  [LangEnum.zh_CN]: {
     label: '简体中文',
-    icon: 'language_zh'
+    avatar: 'common/language/China'
+  },
+  [LangEnum.zh_Hant]: {
+    label: '繁体中文',
+    avatar: 'common/language/China'
   }
-};
-
-export const setLangStore = (value: `${LangEnum}`) => {
-  return Cookies.set(LANG_KEY, value, { expires: 7, sameSite: 'None', secure: true });
-};
-
-export const getLangStore = () => {
-  return (Cookies.get(LANG_KEY) as `${LangEnum}`) || LangEnum.zh;
-};
-
-export const serviceSideProps = (content: any) => {
-  const acceptLanguage = (content.req.headers['accept-language'] as string) || '';
-  const acceptLanguageList = acceptLanguage.split(/,|;/g);
-  // @ts-ignore
-  const firstLang = acceptLanguageList.find((lang) => langMap[lang]);
-
-  const language = content.req.cookies[LANG_KEY] || firstLang || 'zh';
-
-  return serverSideTranslations(language, undefined, null, content.locales);
 };

@@ -1,5 +1,6 @@
+import { PermissionValueType } from '../../permission/type';
 import { TeamMemberRoleEnum } from './constant';
-import { TeamMemberSchema } from './type';
+import { LafAccountType, TeamMemberSchema, ThirdPartyAccountType } from './type';
 
 export type AuthTeamRoleProps = {
   teamId: string;
@@ -9,18 +10,20 @@ export type AuthTeamRoleProps = {
 export type CreateTeamProps = {
   name: string;
   avatar?: string;
-  defaultTeam?: boolean;
+  memberName?: string;
+  memberAvatar?: string;
+  notificationAccount?: string;
 };
-export type UpdateTeamProps = {
-  teamId: string;
+export type UpdateTeamProps = Omit<ThirdPartyAccountType, 'externalWorkflowVariable'> & {
   name?: string;
   avatar?: string;
+  teamDomain?: string;
+  externalWorkflowVariable?: { key: string; value: string };
 };
 
 /* ------------- member ----------- */
 export type DelMemberProps = {
-  teamId: string;
-  memberId: string;
+  tmbId: string;
 };
 export type UpdateTeamMemberProps = {
   teamId: string;
@@ -31,10 +34,13 @@ export type UpdateTeamMemberProps = {
 export type InviteMemberProps = {
   teamId: string;
   usernames: string[];
-  role: `${TeamMemberRoleEnum}`;
 };
 export type UpdateInviteProps = {
   tmbId: string;
   status: TeamMemberSchema['status'];
 };
-export type InviteMemberResponse = Record<'invite' | 'inValid' | 'inTeam', string[]>;
+
+export type InviteMemberResponse = Record<
+  'invite' | 'inValid' | 'inTeam',
+  { username: string; userId: string }[]
+>;

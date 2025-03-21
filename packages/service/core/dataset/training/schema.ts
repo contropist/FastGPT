@@ -1,23 +1,19 @@
 /* 模型的知识库 */
-import { connectionMongo, type Model } from '../../../common/mongo';
-const { Schema, model, models } = connectionMongo;
+import { connectionMongo, getMongoModel } from '../../../common/mongo';
+const { Schema } = connectionMongo;
 import { DatasetTrainingSchemaType } from '@fastgpt/global/core/dataset/type';
-import { TrainingTypeMap } from '@fastgpt/global/core/dataset/constant';
+import { TrainingModeEnum } from '@fastgpt/global/core/dataset/constants';
 import { DatasetColCollectionName } from '../collection/schema';
 import { DatasetCollectionName } from '../schema';
 import {
   TeamCollectionName,
   TeamMemberCollectionName
 } from '@fastgpt/global/support/user/team/constant';
+import { DatasetDataIndexTypeEnum } from '@fastgpt/global/core/dataset/data/constants';
 
-export const DatasetTrainingCollectionName = 'dataset.trainings';
+export const DatasetTrainingCollectionName = 'dataset_trainings';
 
 const TrainingDataSchema = new Schema({
-  userId: {
-    // abandon
-    type: Schema.Types.ObjectId,
-    ref: 'user'
-  },
   teamId: {
     type: Schema.Types.ObjectId,
     ref: TeamCollectionName,
@@ -30,24 +26,22 @@ const TrainingDataSchema = new Schema({
   },
   datasetId: {
     type: Schema.Types.ObjectId,
-    ref: DatasetCollectionName,
     required: true
   },
-  datasetCollectionId: {
+  collectionId: {
     type: Schema.Types.ObjectId,
     ref: DatasetColCollectionName,
     required: true
   },
-  billId: {
-    type: String,
-    default: ''
-  },
+  billId: String,
   mode: {
     type: String,
-    enum: Object.keys(TrainingTypeMap),
+    enum: Object.values(TrainingModeEnum),
     required: true
   },
+
   expireAt: {
+    // It will be deleted after 7 days
     type: Date,
     default: () => new Date()
   },
@@ -55,7 +49,13 @@ const TrainingDataSchema = new Schema({
     type: Date,
     default: () => new Date('2000/1/1')
   },
+  retryCount: {
+    type: Number,
+    default: 5
+  },
+
   model: {
+    // ai model
     type: String,
     required: true
   },
@@ -66,22 +66,64 @@ const TrainingDataSchema = new Schema({
   },
   q: {
     type: String,
-    required: true
+    default: ''
   },
   a: {
     type: String,
     default: ''
+  },
+  chunkIndex: {
+    type: Number,
+    default: 0
+  },
+  weight: {
+    type: Number,
+    default: 0
+  },
+  dataId: {
+    type: Schema.Types.ObjectId
+  },
+  indexes: {
+    type: [
+      {
+        type: {
+          type: String,
+          enum: Object.values(DatasetDataIndexTypeEnum)
+        },
+        text: {
+          type: String,
+          required: true
+        }
+      }
+    ],
+    default: []
   }
 });
 
+TrainingDataSchema.virtual('dataset', {
+  ref: DatasetCollectionName,
+  localField: 'datasetId',
+  foreignField: '_id',
+  justOne: true
+});
+TrainingDataSchema.virtual('collection', {
+  ref: DatasetColCollectionName,
+  localField: 'collectionId',
+  foreignField: '_id',
+  justOne: true
+});
+
 try {
-  TrainingDataSchema.index({ lockTime: 1 });
-  TrainingDataSchema.index({ userId: 1 });
-  TrainingDataSchema.index({ datasetCollectionId: 1 });
-  TrainingDataSchema.index({ expireAt: 1 }, { expireAfterSeconds: 7 * 24 * 60 });
+  // lock training data(teamId); delete training data
+  TrainingDataSchema.index({ teamId: 1, datasetId: 1 });
+  // get training data and sort
+  TrainingDataSchema.index({ mode: 1, retryCount: 1, lockTime: 1, weight: -1 });
+  TrainingDataSchema.index({ expireAt: 1 }, { expireAfterSeconds: 7 * 24 * 60 * 60 }); // 7 days
 } catch (error) {
   console.log(error);
 }
 
-export const MongoDatasetTraining: Model<DatasetTrainingSchemaType> =
-  models[DatasetTrainingCollectionName] || model(DatasetTrainingCollectionName, TrainingDataSchema);
+export const MongoDatasetTraining = getMongoModel<DatasetTrainingSchemaType>(
+  DatasetTrainingCollectionName,
+  TrainingDataSchema
+);

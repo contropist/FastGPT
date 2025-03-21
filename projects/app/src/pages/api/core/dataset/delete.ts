@@ -1,73 +1,62 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { jsonRes } from '@fastgpt/service/common/response';
-import { connectToDatabase } from '@/service/mongo';
-import { MongoDatasetTraining } from '@fastgpt/service/core/dataset/training/schema';
+import type { NextApiRequest } from 'next';
+import { authDataset } from '@fastgpt/service/support/permission/dataset/auth';
+import { delDatasetRelevantData } from '@fastgpt/service/core/dataset/controller';
+import { findDatasetAndAllChildren } from '@fastgpt/service/core/dataset/controller';
 import { MongoDataset } from '@fastgpt/service/core/dataset/schema';
-import { PgClient } from '@fastgpt/service/common/pg';
-import { PgDatasetTableName } from '@fastgpt/global/core/dataset/constant';
-import { delDatasetFiles } from '@fastgpt/service/core/dataset/file/controller';
-import { Types } from '@fastgpt/service/common/mongo';
-import { MongoDatasetCollection } from '@fastgpt/service/core/dataset/collection/schema';
-import { authDataset } from '@fastgpt/service/support/permission/auth/dataset';
+import { mongoSessionRun } from '@fastgpt/service/common/mongo/sessionRun';
+import { NextAPI } from '@/service/middleware/entry';
+import { OwnerPermissionVal } from '@fastgpt/global/support/permission/constant';
+import { CommonErrEnum } from '@fastgpt/global/common/error/code/common';
+import { MongoDatasetCollectionTags } from '@fastgpt/service/core/dataset/tag/schema';
+import { removeImageByPath } from '@fastgpt/service/common/file/image/controller';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<any>) {
-  try {
-    await connectToDatabase();
-    const { id } = req.query as {
-      id: string;
-    };
+async function handler(req: NextApiRequest) {
+  const { id: datasetId } = req.query as {
+    id: string;
+  };
 
-    if (!id) {
-      throw new Error('缺少参数');
-    }
+  if (!datasetId) {
+    return Promise.reject(CommonErrEnum.missingParams);
+  }
 
-    // auth owner
-    await authDataset({ req, authToken: true, datasetId: id, per: 'owner' });
+  // auth owner
+  const { teamId } = await authDataset({
+    req,
+    authToken: true,
+    authApiKey: true,
+    datasetId,
+    per: OwnerPermissionVal
+  });
 
-    const deletedIds = [id, ...(await findAllChildrenIds(id))];
+  const datasets = await findDatasetAndAllChildren({
+    teamId,
+    datasetId
+  });
+  const datasetIds = datasets.map((d) => d._id);
 
-    // delete training data
-    await MongoDatasetTraining.deleteMany({
-      datasetId: { $in: deletedIds.map((id) => new Types.ObjectId(id)) }
-    });
+  // delete collection.tags
+  await MongoDatasetCollectionTags.deleteMany({
+    teamId,
+    datasetId: { $in: datasetIds }
+  });
 
-    // delete all pg data
-    await PgClient.delete(PgDatasetTableName, {
-      where: [`dataset_id IN (${deletedIds.map((id) => `'${id}'`).join(',')})`]
-    });
-
-    // delete related files
-    await delDatasetFiles({ datasetId: id });
-
-    // delete collections
-    await MongoDatasetCollection.deleteMany({
-      datasetId: { $in: deletedIds }
-    });
-
+  // delete all dataset.data and pg data
+  await mongoSessionRun(async (session) => {
     // delete dataset data
-    await MongoDataset.deleteMany({
-      _id: { $in: deletedIds }
-    });
+    await delDatasetRelevantData({ datasets, session });
 
-    jsonRes(res);
-  } catch (err) {
-    jsonRes(res, {
-      code: 500,
-      error: err
-    });
-  }
+    // delete dataset
+    await MongoDataset.deleteMany(
+      {
+        _id: { $in: datasetIds }
+      },
+      { session }
+    );
+
+    for await (const dataset of datasets) {
+      await removeImageByPath(dataset.avatar, session);
+    }
+  });
 }
 
-export async function findAllChildrenIds(id: string) {
-  // find children
-  const children = await MongoDataset.find({ parentId: id });
-
-  let allChildrenIds = children.map((child) => String(child._id));
-
-  for (const child of children) {
-    const grandChildrenIds = await findAllChildrenIds(child._id);
-    allChildrenIds = allChildrenIds.concat(grandChildrenIds);
-  }
-
-  return allChildrenIds;
-}
+export default NextAPI(handler);

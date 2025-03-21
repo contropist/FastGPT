@@ -1,7 +1,7 @@
 import React from 'react';
-import MyRadio from '@/components/Radio';
+import MyRadio from '@/components/common/MyRadio';
 import { PermissionTypeEnum } from '@fastgpt/global/support/permission/constant';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 
 const PermissionRadio = ({
   value,
@@ -18,14 +18,14 @@ const PermissionRadio = ({
       list={[
         {
           icon: 'support/permission/privateLight',
-          title: t('permission.Private'),
-          desc: t('permission.Private Tip'),
+          title: t('common:permission.Private'),
+          desc: t('common:permission.Private Tip'),
           value: PermissionTypeEnum.private
         },
         {
           icon: 'support/permission/publicLight',
-          title: t('permission.Public'),
-          desc: t('permission.Public Tip'),
+          title: t('common:permission.Public'),
+          desc: t('common:permission.Public Tip'),
           value: PermissionTypeEnum.public
         }
       ]}
